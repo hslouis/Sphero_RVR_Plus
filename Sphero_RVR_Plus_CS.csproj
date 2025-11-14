@@ -5,14 +5,8 @@
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <StartupObject>RVR_CS.Program</StartupObject>
+    <StartupObject>Sphero_RVR_Plus_CS.Program</StartupObject>
   </PropertyGroup>
-
-  <ItemGroup>
-    <Compile Remove="Sphero_RVR+_11Novembre_Final\**" />
-    <EmbeddedResource Remove="Sphero_RVR+_11Novembre_Final\**" />
-    <None Remove="Sphero_RVR+_11Novembre_Final\**" />
-  </ItemGroup>
 
   <ItemGroup>
     <!-- Exclude legacy duplicate files at repo root in favor of Core/, Sensors/, Demo/ versions -->
@@ -26,6 +20,14 @@
     <Compile Remove="Demo\ColorSensorLedDemo.cs" />
     <Compile Remove="Examples\ColorSensorLedSyncTest.cs" />
     <Compile Remove="Examples\LedExamples.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Ignore archived legacy project files so they don't get compiled twice -->
+    <Compile Remove="Sphero_RVR+_11Novembre_Final\**\*.cs" />
+    <EmbeddedResource Remove="Sphero_RVR+_11Novembre_Final\**\*" />
+    <None Remove="Sphero_RVR+_11Novembre_Final\**\*" />
+    <Content Remove="Sphero_RVR+_11Novembre_Final\**\*" />
   </ItemGroup>
 
   <ItemGroup>

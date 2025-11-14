@@ -15,7 +15,9 @@ namespace Sphero_RVR_Plus_CS
         private static ColorSensorManager? _quickColorSensor;
         static async Task Main(string[] args)
         {
-            Console.WriteLine("=== Sphero RVR+ Control Center ===");
+
+			ConsoleKeyInfo choice = new ConsoleKeyInfo();
+			Console.WriteLine("=== Sphero RVR+ Control Center ===");
             Console.WriteLine("Version professionnelle avec capteurs et LEDs");
             Console.WriteLine();
 			RvrController rvr = new RvrController("RV-A380");
@@ -23,22 +25,17 @@ namespace Sphero_RVR_Plus_CS
 			Console.WriteLine("RVR - Connectée");
 			// Création du capteur
 			ColorSensorManager _colorSensor = new ColorSensorManager(rvr);
-            _colorSensor.ActivateAsync();
+            await _colorSensor.ActivateAsync();
 			// Test d'activation
 			Console.WriteLine();
 			Console.WriteLine("🔥 ACTIVATION DU CAPTEUR - Regardez si la LED s'allume sous le robot!");
 			Console.WriteLine("La LED devrait devenir BLANCHE/BRILLANTE pendant quelques secondes...");
 			Console.WriteLine();
 
-	
 			// Menu de s�lection
-			while (true)
+			while (choice.KeyChar != '0')
             {
                 Console.WriteLine("Choisissez une d�monstration:");
-              
-               
-              
-               
                 Console.WriteLine("6. ?? Test activation capteur simple (DIAGNOSTIC)");
 				Console.WriteLine("X. ?? Manette");
 				Console.WriteLine("L. ?? CONTR�LE LEDs PRINCIPALES Fonctionnnel Hugo novembre");
@@ -49,7 +46,7 @@ namespace Sphero_RVR_Plus_CS
                 Console.WriteLine("0. Quitter");
                 Console.Write("Votre choix (0-10): ");
 
-                var choice = Console.ReadKey();
+                choice = Console.ReadKey();
                 Console.WriteLine();
                 Console.WriteLine();
 
