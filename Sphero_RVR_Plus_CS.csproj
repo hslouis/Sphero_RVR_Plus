@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <StartupObject>RVR_CS.Program</StartupObject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Exclude legacy duplicate files at repo root in favor of Core/, Sensors/, Demo/ versions -->
+    <Compile Remove="ColorSensorManager.cs" />
+    <Compile Remove="RvrController.cs" />
+    <Compile Remove="RvrBleConnection.cs" />
+    <Compile Remove="SimpleColorSensorDemo.cs" />
+    
+    <!-- Temporarily exclude files with compilation errors until migration -->
+    <Compile Remove="ColorSensorExamples.cs" />
+    <Compile Remove="Demo\ColorSensorLedDemo.cs" />
+    <Compile Remove="Examples\ColorSensorLedSyncTest.cs" />
+    <Compile Remove="Examples\LedExamples.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Documentation\" />
+  </ItemGroup>
+
+</Project>
