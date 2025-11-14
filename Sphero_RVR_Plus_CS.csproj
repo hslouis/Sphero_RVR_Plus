@@ -9,6 +9,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Sphero_RVR+_11Novembre_Final\**" />
+    <EmbeddedResource Remove="Sphero_RVR+_11Novembre_Final\**" />
+    <None Remove="Sphero_RVR+_11Novembre_Final\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Exclude legacy duplicate files at repo root in favor of Core/, Sensors/, Demo/ versions -->
     <Compile Remove="ColorSensorManager.cs" />
     <Compile Remove="RvrController.cs" />
