@@ -9,23 +9,27 @@ using System.Collections.Generic;
 
 namespace Sphero_RVR_Plus_CS
 {
-    class Program
-    {
-        private static RvrController? _quickColorController;
-        private static ColorSensorManager? _quickColorSensor;
-        static async Task Main(string[] args)
-        {
+	class Program
+	{
+		private static RvrController? _quickColorController;
+		private static ColorSensorManager? _quickColorSensor;
+		static async Task Main(string[] args)
+		{
 
 			ConsoleKeyInfo choice = new ConsoleKeyInfo();
+
+
+
 			Console.WriteLine("=== Sphero RVR+ Control Center ===");
-            Console.WriteLine("Version professionnelle avec capteurs et LEDs");
-            Console.WriteLine();
+			//
 			RvrController rvr = new RvrController("RV-A380");
 			await rvr.ConnectAsync();
 			Console.WriteLine("RVR - Connectée");
-			// Création du capteur
+			// Création du capteur de couleur
 			ColorSensorManager _colorSensor = new ColorSensorManager(rvr);
-            await _colorSensor.ActivateAsync();
+			await _colorSensor.ActivateAsync();
+
+
 			// Test d'activation
 			Console.WriteLine();
 			Console.WriteLine("🔥 ACTIVATION DU CAPTEUR - Regardez si la LED s'allume sous le robot!");
@@ -34,39 +38,39 @@ namespace Sphero_RVR_Plus_CS
 
 			// Menu de s�lection
 			while (choice.KeyChar != '0')
-            {
-                Console.WriteLine("Choisissez une d�monstration:");
-                Console.WriteLine("6. ?? Test activation capteur simple (DIAGNOSTIC)");
+			{
+				Console.WriteLine("Choisissez une d�monstration:");
+				Console.WriteLine("6. ?? Test activation capteur simple (DIAGNOSTIC)");
 				Console.WriteLine("X. ?? Manette");
 				Console.WriteLine("L. ?? CONTR�LE LEDs PRINCIPALES Fonctionnnel Hugo novembre");
 				Console.WriteLine("9. ?? DEMO LIBRAIRIE COMPLETE (NOUVEAU)");
-                Console.WriteLine("F. ?? CAPTEUR COULEUR CORRIGE (NOUVEAU)");
-                Console.WriteLine("S. ?? LECTURE COULEUR PONCTUELLE (NOUVEAU)");
-                Console.WriteLine("Y. ?? SYNCHRONISATION LED-COULEUR (NOUVEAU)");
-                Console.WriteLine("0. Quitter");
-                Console.Write("Votre choix (0-10): ");
+				Console.WriteLine("F. ?? CAPTEUR COULEUR CORRIGE (NOUVEAU)");
+				Console.WriteLine("S. ?? LECTURE COULEUR PONCTUELLE (NOUVEAU)");
+				Console.WriteLine("Y. ?? SYNCHRONISATION LED-COULEUR (NOUVEAU)");
+				Console.WriteLine("0. Quitter");
+				Console.Write("Votre choix (0-10): ");
 
-                choice = Console.ReadKey();
-                Console.WriteLine();
-                Console.WriteLine();
+				choice = Console.ReadKey();
+				Console.WriteLine();
+				Console.WriteLine();
 
-                if (choice.KeyChar == '0')
-                {
-                    Console.WriteLine("?? Au revoir!");
-                    break;
-                }
-                
+				if (choice.KeyChar == '0')
+				{
+					Console.WriteLine("?? Au revoir!");
+					break;
+				}
 
-                try
-                {
-   
 
-					
-		
-                    switch (choice.KeyChar)
-                    {
+				try
+				{
 
-                        case '6':
+
+
+
+					switch (choice.KeyChar)
+					{
+
+						case '6':
 
 
 							try
@@ -90,21 +94,26 @@ namespace Sphero_RVR_Plus_CS
 									Console.WriteLine("Appuyez sur une touche pour continuer...");
 									Console.ReadKey();
 
-									// Test de lecture simple
-									Console.WriteLine();
+									// Test de lecture simple									
 									Console.WriteLine("📊 Test de lecture des couleurs...");
-
-									for (int i = 0; i < 10; i++)
+									ColorReading color = null;
+									color = await _colorSensor.ReadColorAsync();
+									if (color != null)
 									{
-										var colorReading = await _colorSensor.ReadColorAsync();
-										if (colorReading.HasValue)
+										LedColor Ledcolor = color.GetDetectedColor();
+										
+										Console.WriteLine(Ledcolor.ToString());
+										Console.WriteLine(color.GetColorNameFrench());
+										Console.WriteLine($"   Lecture initiale: RGB({color.Red}, {color.Green}, {color.Blue})");
+									}
+										for (int i = 0; i < 10; i++)
+									{
+										color = await _colorSensor.ReadColorAsync();
+										if (color != null)
 										{
-											var color = colorReading.Value;
 											Console.WriteLine($"   Lecture {i + 1}: RGB({color.Red}, {color.Green}, {color.Blue})");
 											Console.WriteLine($"      → Couleur détectée: {color.GetColorNameFrench()}");
-                                            await rvr.SetMainLedsAsync(color.Red, color.Green, color.Blue);
-                                            
-
+											await rvr.SetMainLedsAsync(color.Red, color.Green, color.Blue);
 										}
 										else
 										{
@@ -122,11 +131,11 @@ namespace Sphero_RVR_Plus_CS
 							{
 								Console.WriteLine($"❌ Erreur: {ex.Message}");
 							}
-							
+
 							break;
 
-					
-                        case '9':
+
+						case '9':
 							// D�monstration compl�te de la librairie
 							try
 							{
@@ -158,81 +167,81 @@ namespace Sphero_RVR_Plus_CS
 							{
 								Console.WriteLine($"❌ Erreur: {ex.Message}");
 							}
-						
+
 							break;
-                            
-                        case 'f':
-                        case 'F':
-                            // Option F - Test capteur couleur corrig�(Hugo: fonctionne de temps en temps)
-                            Console.WriteLine("?? === CAPTEUR COULEUR CORRIG� ===");
-                            await Sphero_RVR_Plus_CS.Examples.QuickColorTest.Main(new string[0]);
-                            break;
-                 
-                        case 'r':
-                        case 'R':
-                            // Option R - Lecture synchrone via ReadColorAsync
-                            Console.WriteLine("?? === TEST LECTURE COULEUR SYNCHRONE ===");
-                            try
-                            {
-                                //if (!await EnsureQuickColorSensorReadyAsync())
-                                //{
-                                //    break;
-                                //}
 
-                                var colorReading = await _colorSensor.ReadColorAsync();
-                                if (colorReading.HasValue)
-                                {
-                                    var reading = colorReading.Value;
-                                    Console.WriteLine($"?? Lecture reussRie: R={reading.R:D3} G={reading.G:D3} B={reading.B:D3}");
-                                    Console.WriteLine($"?? Couleur detectee: {reading.GetColorNameFrench()}");
-                                }
-                                else
-                                {
-                                    Console.WriteLine("? Aucune donnee recue dans le delai imparti");
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine($"? Erreur pendant le test synchrone: {ex.Message}");
-                            }
-                            break;
-                        case 'y':
-                        case 'Y':
-                            // Option Y - Synchronisation LED-couleur
-                            Console.WriteLine("?? === SYNCHRONISATION LED-COULEUR ===");
-                            await ColorLedSyncDemo.RunAsync(rvr);
-                          
-                            break;
+						case 'f':
+						case 'F':
+							// Option F - Test capteur couleur corrig�(Hugo: fonctionne de temps en temps)
+							Console.WriteLine("?? === CAPTEUR COULEUR CORRIG� ===");
+							await Sphero_RVR_Plus_CS.Examples.QuickColorTest.Main(new string[0]);
+							break;
 
-                        case 'l':
-                        case 'L':
-                            // Option L - Contr�le des LEDs principales
-                            Console.WriteLine("Choisissez le mode:");
-                            Console.WriteLine("1. D�monstration automatique");
-                            Console.WriteLine("2. Contr�le interactif");
-                            Console.Write("Votre choix (1-2): ");
-                            var ledChoice = Console.ReadKey();
-                            Console.WriteLine();
-                            Console.WriteLine();
-                            
-                            if (ledChoice.KeyChar == '1')
-                            {
-								try
+						case 'r':
+						case 'R':
+							// Option R - Lecture synchrone via ReadColorAsync
+							Console.WriteLine("?? === TEST LECTURE COULEUR SYNCHRONE ===");
+							try
+							{
+								//if (!await EnsureQuickColorSensorReadyAsync())
+								//{
+								//    break;
+								//}
+
+								var colorReading = await _colorSensor.ReadColorAsync();
+								if (colorReading != null)
 								{
 									
+									Console.WriteLine($"?? Lecture reussRie: R={colorReading.R:D3} G={colorReading.G:D3} B={colorReading.B:D3}");
+									Console.WriteLine($"?? Couleur detectee: {colorReading.GetColorNameFrench()}");
+								}
+								else
+								{
+									Console.WriteLine("? Aucune donnee recue dans le delai imparti");
+								}
+							}
+							catch (Exception ex)
+							{
+								Console.WriteLine($"? Erreur pendant le test synchrone: {ex.Message}");
+							}
+							break;
+						case 'y':
+						case 'Y':
+							// Option Y - Synchronisation LED-couleur
+							Console.WriteLine("?? === SYNCHRONISATION LED-COULEUR ===");
+							await ColorLedSyncDemo.RunAsync(rvr);
+
+							break;
+
+						case 'l':
+						case 'L':
+							// Option L - Contr�le des LEDs principales
+							Console.WriteLine("Choisissez le mode:");
+							Console.WriteLine("1. D�monstration automatique");
+							Console.WriteLine("2. Contr�le interactif");
+							Console.Write("Votre choix (1-2): ");
+							var ledChoice = Console.ReadKey();
+							Console.WriteLine();
+							Console.WriteLine();
+
+							if (ledChoice.KeyChar == '1')
+							{
+								try
+								{
+
 
 									// Test 1: Couleurs de base
 									Console.WriteLine("🎨 Test 1: Couleurs de base");
 									var basicColors = new[]
 									{
-					                    (LedColor.Red, "Rouge"),
-					                    (LedColor.Green, "Vert"),
-					                    (LedColor.Blue, "Bleu"),
-					                    (LedColor.Yellow, "Jaune"),
-					                    (LedColor.BlueCyan, "Cyan"),
-					                    (LedColor.Magenta, "Magenta"),
-					                    (LedColor.White, "Blanc")
-				                    };
+										(LedColor.Red, "Rouge"),
+										(LedColor.Green, "Vert"),
+										(LedColor.Blue, "Bleu"),
+										(LedColor.Yellow, "Jaune"),
+										(LedColor.BlueCyan, "Cyan"),
+										(LedColor.Magenta, "Magenta"),
+										(LedColor.White, "Blanc")
+									};
 
 									foreach (var (color, name) in basicColors)
 									{
@@ -342,57 +351,58 @@ namespace Sphero_RVR_Plus_CS
 									Console.WriteLine("🔌 Déconnecté du RVR+");
 								}
 							}
-                            else if (ledChoice.KeyChar == '2')
-                            {
-                                await MainLedControlDemo.ShowInteractiveMenu();
-                            }
-                            else
-                            {
-                                Console.WriteLine("? Choix invalide");
-                            }
-                            break;
-                        case 'x':
-                        case 'X':
-                            
-                            RunInteractiveControl(rvr);
-                            
-                            break;
+							else if (ledChoice.KeyChar == '2')
+							{
+								await MainLedControlDemo.ShowInteractiveMenu();
+							}
+							else
+							{
+								Console.WriteLine("? Choix invalide");
+							}
+							break;
+						case 'x':
+						case 'X':
 
-                        default:
-                         
-                            Console.WriteLine("? Choix invalide");
-                            break;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"? Erreur: {ex.Message}");
-                }
+							RunInteractiveControl(rvr);
 
-                Console.WriteLine();
-                Console.WriteLine("Appuyez sur une touche pour revenir au menu...");
-                Console.ReadKey();
-                Console.Clear();
-            }
+							break;
 
+						default:
+
+							Console.WriteLine("? Choix invalide");
+							break;
+					}
+				}
+				catch (Exception ex)
+				{
+					Console.WriteLine($"? Erreur: {ex.Message}");
+				}
+
+				Console.WriteLine();
+				Console.WriteLine("Appuyez sur une touche pour revenir au menu...");
+				Console.ReadKey();
+				Console.Clear();
+			}
+			//Fermer la connexion
+			Console.WriteLine("🔌 Déconnexion du RVR+...");
 			await rvr.DisconnectAsync();
-        }
+		}
 
 
 
-        static async Task RunInteractiveControl(RvrController rvr)
-        {
-            Console.WriteLine("\n=== Interactive Motor Control ===");
-            
-
-            try
-            {
+		static async Task RunInteractiveControl(RvrController rvr)
+		{
+			Console.WriteLine("\n=== Interactive Motor Control ===");
 
 
+			try
+			{
 
-                string key = "";
-                while (key != "q")
-                {
+
+
+				string key = "";
+				while (key != "q")
+				{
 					Console.Clear();
 					Console.WriteLine("Controls:");
 					Console.WriteLine("  W - Forward");
@@ -403,12 +413,12 @@ namespace Sphero_RVR_Plus_CS
 					Console.WriteLine("  Q - Quit");
 					Console.WriteLine();
 					Console.Write("Command: ");
-                    key = Console.ReadLine();
+					key = Console.ReadLine();
 
-                    
-                    switch (key)
-                    {
-                        case "w":
+
+					switch (key)
+					{
+						case "w":
 						case "W":
 							// Test 1: Avancement avec durée
 							Console.WriteLine("📏 Test 1: Avancement 2 secondes à vitesse 100");
@@ -416,33 +426,34 @@ namespace Sphero_RVR_Plus_CS
 							await Task.Delay(1000);
 
 							break;
-                        case "s":
+						case "s":
 						case "S":
 							// Test 2: Recul avec durée
-							Console.WriteLine("📏 Test 2: Recul 1.5 secondes à vitesse 80");				
-
+							Console.WriteLine("📏 Test 2: Recul 1.5 secondes à vitesse 80");
 							await rvr.DriveBackwardAsync(80, 1500); // 1.5 secondes
 							await Task.Delay(1000);
-					
-                            break;
-                        case "a":
+
+							break;
+						case "a":
 						case "A":
-							// Test 3: Mouvement avec différentiel (virage léger)
-							Console.WriteLine("📏 Left");
-							await rvr.DriveAsync(0, 100, 1000); // 3 secondes
+							// Test 3: Mouvement avec différentiel (virage léger gauche)
+							Console.WriteLine("📏 Gauche");
+							await rvr.DriveAsync(0, 100, 1000); // 1 seconde
 							await Task.Delay(1000);
 							break;
-                        case "d":
+						case "d":
 						case "D":
-							Console.WriteLine("?? Right");
-							await rvr.DriveAsync(100, 0, 1000); // 3 secondes
+							// Test 3: Mouvement avec différentiel (virage léger droite)
+							Console.WriteLine("📏 droit");
+							await rvr.DriveAsync(100, 0, 1000); // 1 seconde
+							await Task.Delay(1000);
 							break;
-                        case "t":
+						case "t":
 						case "T":
 							// Test 4: Virage progressif avec nouvelle fonction
 							await rvr.DriveWithTurnAsync(120, 0.5, 2500); // 2.5 secondes
 							await Task.Delay(1000);
-                            break;
+							break;
 						case " ":
 
 							Console.WriteLine("?? Brake...");
@@ -450,32 +461,40 @@ namespace Sphero_RVR_Plus_CS
 
 
 							break;
-                        case "q":
+						case "q":
 						case "Q":
 							Console.WriteLine("?? Quitting...");
-                            await rvr.SetMotorsAsync(0, 0);
-                            break;
-                    }
+							await rvr.SetMotorsAsync(0, 0);
+							break;
+					}
 
-                    await Task.Delay(10); // Small delay for smooth control
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error: {ex.Message}");
-            }
-         
-        }
+					await Task.Delay(10); // Small delay for smooth control
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Error: {ex.Message}");
+			}
+
+		}
 
 		private static async Task TestLedFunctions(RvrController rvr)
 		{
 			Console.WriteLine("   Test des couleurs prédéfinies:");
+			//Avec les couleurs prédéfinies
+			await rvr.SetLedColorAsync(RvrLedColor.Red);
+			await Task.Delay(800);
+			//Avec des couleurs personnalisées
+			await rvr.SetLedColorAsync(255, 0, 0);
+			await Task.Delay(800);
+
 
 			var colors = new[] { RvrLedColor.Red, RvrLedColor.Green, RvrLedColor.Blue, RvrLedColor.Yellow, RvrLedColor.White };
 			foreach (var color in colors)
 			{
 				Console.WriteLine($"   • {color}");
 				await rvr.SetLedColorAsync(color);
+
 				await Task.Delay(800);
 			}
 
@@ -497,7 +516,7 @@ namespace Sphero_RVR_Plus_CS
 			await Task.Delay(500);
 
 			Console.WriteLine("   Reculer:");
-			await rvr.DriveBackwardAsync(60,1000);
+			await rvr.DriveBackwardAsync(60, 1000);
 			await Task.Delay(1500);
 			await rvr.StopAsync();
 			await Task.Delay(500);

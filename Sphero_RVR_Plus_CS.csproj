@@ -9,6 +9,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Documentation\**" />
+    <Compile Remove="Sphero_RVR+_11Novembre_Final\**" />
+    <EmbeddedResource Remove="Documentation\**" />
+    <EmbeddedResource Remove="Sphero_RVR+_11Novembre_Final\**" />
+    <None Remove="Documentation\**" />
+    <None Remove="Sphero_RVR+_11Novembre_Final\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Exclude legacy duplicate files at repo root in favor of Core/, Sensors/, Demo/ versions -->
     <Compile Remove="ColorSensorManager.cs" />
     <Compile Remove="RvrController.cs" />
@@ -20,11 +29,6 @@
     <Compile Remove="Demo\ColorSensorLedDemo.cs" />
     <Compile Remove="Examples\ColorSensorLedSyncTest.cs" />
     <Compile Remove="Examples\LedExamples.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Documentation\" />
-    <Folder Include="Sphero_RVR+_11Novembre_Final\" />
   </ItemGroup>
 
 </Project>

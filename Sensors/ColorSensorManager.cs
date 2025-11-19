@@ -166,7 +166,7 @@ namespace Sphero_RVR_Plus_CS.Sensors
         /// Format: 8D 38 11 01 18 3D FF 01 FF [R] [G] [B] FF 00 [CHK] D8
         /// </summary>
         /// <returns>Structure ColorReading avec les valeurs RGB</returns>
-        public async Task<ColorReading?> ReadColorAsync()
+        public async Task<ColorReading> ReadColorAsync()
         {
             try
             {
@@ -540,7 +540,7 @@ namespace Sphero_RVR_Plus_CS.Sensors
     /// <summary>
     /// Structure pour les données de couleur lues avec détection automatique de couleur
     /// </summary>
-    public struct ColorReading
+    public class ColorReading
     {
         public byte R { get; set; }
         public byte G { get; set; }

@@ -46,12 +46,12 @@ namespace Sphero_RVR_Plus_CS.Examples
                     bool running = true;
                     while (running)
                     {
-                        // Lecture de couleur
-                        var colorReading = await colorSensor.ReadColorAsync();
+						// Lecture de couleur
+						ColorReading color = await colorSensor.ReadColorAsync();
                         
-                        if (colorReading.HasValue)
+                        if (color != null)
                         {
-                            var color = colorReading.Value;
+                           
                             
                             // Affichage des informations détaillées
                             Console.WriteLine($"🎨 Valeurs RGB: R={color.R}, G={color.G}, B={color.B}");
