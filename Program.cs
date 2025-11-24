@@ -29,7 +29,7 @@ namespace Sphero_RVR_Plus_CS
 
 			Console.WriteLine("=== Sphero RVR+ Control Center ===");
 			//
-			RvrController rvr = new RvrController("RV-829BXXX");
+			RvrController rvr = new RvrController("RV-829B");
 			await rvr.ConnectAsync();
 			Console.WriteLine("RVR - Connectée");
 			// Création du capteur de couleur
@@ -150,6 +150,19 @@ namespace Sphero_RVR_Plus_CS
 						}
 					case ' ':
 						{
+							// Test de lecture simple
+							Console.WriteLine("📊 Test de lecture des couleurs...");
+							ColorReading color = null;
+							color = await _colorSensor.ReadColorAsync();
+							if (color != null)
+							{
+								LedColor Ledcolor = color.GetDetectedColor();
+
+								Console.WriteLine(Ledcolor.ToString());
+								Console.WriteLine(color.GetColorNameFrench());
+								Console.WriteLine($"   Lecture initiale: RGB({ color.Red}, { color.Green}, { color.Blue})");
+							}
+							Console.ReadKey();
 							break;
 						}
 					case 'M':

@@ -540,8 +540,15 @@ namespace Sphero_RVR_Plus_CS.Sensors
 			const double LOW_V = 0.25;   // sombre
 			const double LOW_S = 0.12;   // désaturé → blanc/gris
 
-			// --- NOIR ---
-			if (v < 0.04)   // quasi 0,0,0
+			// ---- Gestion explicite du noir / éteint ----
+			const int BLACK_MAX = 45; // tout en dessous de ~18% sur 255 ≈ noir
+
+			// Cas "vraiment rien" : capteur ne reçoit aucune lumière
+			if (r == 0 && g == 0 && b == 0)
+				return LedColor.Off;
+
+			// Cas noir ou très sombre : petites valeurs mais pas nulles
+			if (r <= BLACK_MAX && g <= BLACK_MAX && b <= BLACK_MAX)
 				return LedColor.Black;
 
 			// --- ÉTEINT ---

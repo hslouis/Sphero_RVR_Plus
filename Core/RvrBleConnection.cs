@@ -41,280 +41,255 @@ namespace Sphero_RVR_Plus_CS.Core
             _preferIndications = preferIndications;
         }
 
-        public async Task<bool> ConnectAsync()
-        {
-            try
-            {
-                Trace.WriteLine($"🔍 Scanning for BLE device: {_deviceName}");
+		/// <summary>
+		/// Attempt to connect to the RVR+ over BLE using an optimized fast path
+		/// </summary>
+		/// <returns></returns>
+		public async Task<bool> ConnectAsync()
+		{
+			const int SCAN_TIMEOUT_SECONDS = 14;   // au lieu de 20
+			const int GATT_RETRIES = 3;           // au lieu de 3
+			const int SHORT_DELAY_MS = 300;       // au lieu de 300–500
 
-                // Enumerate BLE devices
-                var selector = BluetoothLEDevice.GetDeviceSelector();
-                var devices = await DeviceInformation.FindAllAsync(selector);
-                int deviceCount = devices?.Count ?? 0;
-                Trace.WriteLine($"Found {deviceCount} BLE devices:");
-                if (deviceCount > 0)
-                {
-                    foreach (var d in (IEnumerable<DeviceInformation>?)devices ?? Array.Empty<DeviceInformation>())
-                    {
-                        Trace.WriteLine($"  - {d?.Name} ({d?.Id})");
-                    }
-                }
+			try
+			{
+				Trace.WriteLine($"🔍 Fast scan for BLE device: {_deviceName}");
 
-                // Match by name (contains)
-                var rvrInfo = devices?.FirstOrDefault(d =>
-                    !string.IsNullOrWhiteSpace(d.Name) &&
-                    (d.Name.Contains(_deviceName, StringComparison.OrdinalIgnoreCase) ||
-                     d.Name.Contains("rvr", StringComparison.OrdinalIgnoreCase) ||
-                     d.Name.Contains("sphero", StringComparison.OrdinalIgnoreCase)));
+				// 1) Enum rapide des devices déjà connus par Windows
+				var selector = BluetoothLEDevice.GetDeviceSelector();
+				var devices = await DeviceInformation.FindAllAsync(selector);
 
-                if (rvrInfo == null)
-                {
-                    Trace.WriteLine($"⚠️ Not found via enumeration. Trying advertisement scan (20s)...");
-                    _device = await ScanWithWatcherAsync(_deviceName, TimeSpan.FromSeconds(20));
-                }
-                else
-                {
-                    Trace.WriteLine($"🔗 Connecting to {rvrInfo.Name} (enumeration)...");
-                    _device = await BluetoothLEDevice.FromIdAsync(rvrInfo.Id);
-                }
+				var rvrInfo = devices?.FirstOrDefault(d =>
+					!string.IsNullOrWhiteSpace(d.Name) &&
+					(d.Name.Contains(_deviceName, StringComparison.OrdinalIgnoreCase) ||
+					 d.Name.Contains("rvr", StringComparison.OrdinalIgnoreCase) ||
+					 d.Name.Contains("sphero", StringComparison.OrdinalIgnoreCase)));
 
-                if (_device == null)
-                {
-                    Trace.WriteLine("❌ Could not acquire BLE device instance");
-                    Trace.WriteLine("💡 Ensure RVR+ is on, in BLE pairing mode (LEDs flashing), and in range.");
-                  
+				if (rvrInfo == null)
+				{
+					// 2) Pub scan plus court
+					Trace.WriteLine($"⚠️ Not found via enumeration. Trying advertisement scan ({SCAN_TIMEOUT_SECONDS}s)...");
+					_device = await ScanWithWatcherAsync(_deviceName, TimeSpan.FromSeconds(SCAN_TIMEOUT_SECONDS)); 
+				}
+				else
+				{
+					Trace.WriteLine($"🔗 Connecting to {rvrInfo.Name} (enumeration)...");
+					_device = await BluetoothLEDevice.FromIdAsync(rvrInfo.Id);
+				}
+
+				if (_device == null)
+				{
+					Trace.WriteLine("❌ Could not acquire BLE device instance");
+					Trace.WriteLine("💡 Ensure RVR+ is on, in BLE pairing mode (LEDs flashing), and in range.");
 					return false;
-                }
+				}
 
-                _device.ConnectionStatusChanged += (s, e) =>
-                {
-                    if (_device != null)
-                        Trace.WriteLine($"🔌 Connection status: {_device.ConnectionStatus}");
-                };
+				_device.ConnectionStatusChanged += (s, e) =>
+				{
+					if (_device != null)
+						Trace.WriteLine($"🔌 Connection status: {_device.ConnectionStatus}");
+				};
 
-                // Give a brief moment for GATT to become available
-                await Task.Delay(300);
+				// Petit délai, mais plus court
+				await Task.Delay(100);
 
-                // Get service
-                // Warm-up: enumerate all services uncached, with a few retries
-                GattDeviceServicesResult? allSvcResult = null;
-                for (int attempt = 1; attempt <= 3; attempt++)
-                {
-                    allSvcResult = await _device.GetGattServicesAsync(BluetoothCacheMode.Uncached);
-                    var count = allSvcResult?.Services?.Count ?? 0;
-                    Trace.WriteLine($"🔎 GetGattServices attempt {attempt} => {allSvcResult?.Status}, count={count}");
-                    if (allSvcResult?.Status == GattCommunicationStatus.Success && count > 0) break;
-                    await Task.Delay(300);
-                }
+				// =======================
+				//   SERVICES (FAST PATH)
+				// =======================
+				GattDeviceServicesResult? svcResult = null;
 
-                if (allSvcResult == null || allSvcResult.Status != GattCommunicationStatus.Success)
-                {
-                    Trace.WriteLine($"⚠️ Full service enumeration failed ({allSvcResult?.Status}). Trying UUID-specific query...");
-                }
+				// 1) Directement par UUID en mode Cached (souvent suffisant)
+				var svcByUuidCached = await _device.GetGattServicesForUuidAsync(
+					RVR_BLE_SERVICE_UUID, BluetoothCacheMode.Cached);
+				Trace.WriteLine($"🔎 GetGattServicesForUuid (cached) => {svcByUuidCached.Status}, count={svcByUuidCached.Services?.Count ?? 0}");
 
-                // Pick service by UUID from the full list first
-                _service = allSvcResult?.Services?.FirstOrDefault(s => s.Uuid == RVR_BLE_SERVICE_UUID);
+				if (svcByUuidCached.Status == GattCommunicationStatus.Success &&
+					svcByUuidCached.Services?.Count > 0)
+				{
+					_service = svcByUuidCached.Services[0];
+				}
+				else
+				{
+					// 2) Quelques essais en Uncached sur le UUID spécifique
+					for (int attempt = 1; attempt <= GATT_RETRIES && _service == null; attempt++)
+					{
+						var svcByUuid = await _device.GetGattServicesForUuidAsync(
+							RVR_BLE_SERVICE_UUID, BluetoothCacheMode.Uncached);
+						Trace.WriteLine($"🔎 GetGattServicesForUuid (uncached) attempt {attempt} => {svcByUuid.Status}, count={svcByUuid.Services?.Count ?? 0}");
 
-                if (_service == null)
-                {
-                    // Fallback: direct UUID query with retries
-                    GattDeviceServicesResult? svcByUuid = null;
-                    for (int attempt = 1; attempt <= 3; attempt++)
-                    {
-                        svcByUuid = await _device.GetGattServicesForUuidAsync(RVR_BLE_SERVICE_UUID, BluetoothCacheMode.Uncached);
-                        var count = svcByUuid?.Services?.Count ?? 0;
-                        Trace.WriteLine($"🔎 GetGattServicesForUuid attempt {attempt} => {svcByUuid?.Status}, count={count}");
-                        if (svcByUuid?.Status == GattCommunicationStatus.Success && count > 0)
-                        {
-                            _service = svcByUuid!.Services![0];
-                            break;
-                        }
-                        await Task.Delay(400);
-                    }
-                }
+						if (svcByUuid.Status == GattCommunicationStatus.Success &&
+							svcByUuid.Services?.Count > 0)
+						{
+							_service = svcByUuid.Services[0];
+							break;
+						}
 
-                if (_service == null)
-                {
-                    Trace.WriteLine($"❌ RVR+ BLE service not found");
-                    return false;
-                }
-                Trace.WriteLine("🔧 RVR+ service found");
+						await Task.Delay(SHORT_DELAY_MS);
+					}
 
-                // Get characteristic (UUID-specific first, then fallback to enumerate all)
-                GattCharacteristicsResult? charResult = null;
-                for (int attempt = 1; attempt <= 3; attempt++)
-                {
-                    charResult = await _service.GetCharacteristicsForUuidAsync(RVR_BLE_CHARACTERISTIC_UUID, BluetoothCacheMode.Uncached);
-                    var count = charResult?.Characteristics?.Count ?? 0;
-                    Trace.WriteLine($"🔎 GetCharacteristics attempt {attempt} => {charResult?.Status}, count={count}");
-                    if (charResult?.Status == GattCommunicationStatus.Success && count > 0)
-                    {
-                        _characteristic = charResult!.Characteristics![0];
-                        break;
-                    }
-                    await Task.Delay(500);
-                }
-                // Try to obtain the notify characteristic explicitly as well
-                GattCharacteristicsResult? charNotifyResult = null;
-                for (int attempt = 1; attempt <= 3 && _notifyCharacteristic == null; attempt++)
-                {
-                    charNotifyResult = await _service.GetCharacteristicsForUuidAsync(RVR_BLE_CHARACTERISTIC_NOTIFY_UUID, BluetoothCacheMode.Uncached);
-                    var count = charNotifyResult?.Characteristics?.Count ?? 0;
-                    Trace.WriteLine($"🔎 GetCharacteristics(notify) attempt {attempt} => {charNotifyResult?.Status}, count={count}");
-                    if (charNotifyResult?.Status == GattCommunicationStatus.Success && count > 0)
-                    {
-                        _notifyCharacteristic = charNotifyResult!.Characteristics![0];
-                        break;
-                    }
-                    await Task.Delay(500);
-                }
-                if (_characteristic == null)
-                {
-                    Trace.WriteLine("↪️ Fallback: enumerate all characteristics");
-                    for (int attempt = 1; attempt <= 3 && _characteristic == null; attempt++)
-                    {
-                        var allChars = await _service.GetCharacteristicsAsync(BluetoothCacheMode.Uncached);
-                        var count = allChars?.Characteristics?.Count ?? 0;
-                        Trace.WriteLine($"🔎 GetCharacteristics(all) attempt {attempt} => {allChars?.Status}, count={count}");
-                        if (allChars?.Status == GattCommunicationStatus.Success && count > 0)
-                        {
-                            _characteristic = allChars!.Characteristics!.FirstOrDefault(c => c.Uuid == RVR_BLE_CHARACTERISTIC_UUID)
-                                              ?? allChars!.Characteristics!.FirstOrDefault();
-                            _notifyCharacteristic ??= allChars!.Characteristics!.FirstOrDefault(c => c.Uuid == RVR_BLE_CHARACTERISTIC_NOTIFY_UUID);
-                            if (_characteristic != null) break;
-                        }
-                        await Task.Delay(500);
-                    }
-                }
-                if (_characteristic == null)
-                {
-                    // Last ditch: try cached mode
-                    var cached = await _service.GetCharacteristicsForUuidAsync(RVR_BLE_CHARACTERISTIC_UUID, BluetoothCacheMode.Cached);
-                    var count = cached?.Characteristics?.Count ?? 0;
-                    Trace.WriteLine($"🔎 GetCharacteristics (cached) => {cached?.Status}, count={count}");
-                    if (cached?.Status == GattCommunicationStatus.Success && count > 0)
-                    {
-                        _characteristic = cached!.Characteristics![0];
-                    }
-                }
-                if (_characteristic == null)
-                {
-                    Trace.WriteLine($"❌ RVR+ control characteristic not found");
-                    return false;
-                }
-                Trace.WriteLine("⚙️ Control characteristic found");
-                try
-                {
-                    Trace.WriteLine($"   UUID: {_characteristic.Uuid}");
-                    Trace.WriteLine($"   Props: {_characteristic.CharacteristicProperties}");
-                }
-                catch { }
+					// 3) Fallback : une seule énumération complète
+					if (_service == null)
+					{
+						svcResult = await _device.GetGattServicesAsync(BluetoothCacheMode.Uncached);
+						Trace.WriteLine($"🔎 GetGattServices(all) => {svcResult.Status}, count={svcResult.Services?.Count ?? 0}");
 
-                if (_notifyCharacteristic == null)
-                {
-                    // Try cached for notify characteristic as a last resort
-                    var cachedNotify = await _service.GetCharacteristicsForUuidAsync(RVR_BLE_CHARACTERISTIC_NOTIFY_UUID, BluetoothCacheMode.Cached);
-                    var ncount = cachedNotify?.Characteristics?.Count ?? 0;
-                    Trace.WriteLine($"🔎 GetCharacteristics(notify cached) => {cachedNotify?.Status}, count={ncount}");
-                    if (cachedNotify?.Status == GattCommunicationStatus.Success && ncount > 0)
-                    {
-                        _notifyCharacteristic = cachedNotify!.Characteristics![0];
-                    }
-                }
-                if (_notifyCharacteristic != null)
-                {
-                    Trace.WriteLine("🔔 Notify characteristic discovered");
-                    try
-                    {
-                        Trace.WriteLine($"   UUID: {_notifyCharacteristic.Uuid}");
-                        Trace.WriteLine($"   Props: {_notifyCharacteristic.CharacteristicProperties}");
-                    }
-                    catch { }
-                }
+						if (svcResult.Status == GattCommunicationStatus.Success &&
+							svcResult.Services?.Count > 0)
+						{
+							_service = svcResult.Services.FirstOrDefault(s => s.Uuid == RVR_BLE_SERVICE_UUID)
+									   ?? svcResult.Services[0];
+						}
+					}
+				}
 
-                // Prefer notifications on the dedicated notify characteristic.
-                bool notifySet = false;
-                if (_notifyCharacteristic != null &&
-                    (_notifyCharacteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify) ||
-                     _notifyCharacteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Indicate)))
-                {
-                    _notifyCharacteristic.ValueChanged += OnCharacteristicValueChanged;
-                    var cccd = (_preferIndications && _notifyCharacteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Indicate))
-                        ? GattClientCharacteristicConfigurationDescriptorValue.Indicate
-                        : (_notifyCharacteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify)
-                            ? GattClientCharacteristicConfigurationDescriptorValue.Notify
-                            : GattClientCharacteristicConfigurationDescriptorValue.Indicate);
-                    var cccdStatus = await _notifyCharacteristic.WriteClientCharacteristicConfigurationDescriptorAsync(cccd);
-                    Trace.WriteLine($"📡 Notifications (notify char) {(cccdStatus == GattCommunicationStatus.Success ? "enabled" : "failed")} ({cccdStatus})");
-                    notifySet = cccdStatus == GattCommunicationStatus.Success;
-                    try
-                    {
-                        var readCccd = await _notifyCharacteristic.ReadClientCharacteristicConfigurationDescriptorAsync();
-                        Trace.WriteLine($"🔎 CCCD (notify char) now: {readCccd.Status} - {readCccd.ClientCharacteristicConfigurationDescriptor}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Trace.WriteLine($"⚠️ Could not read CCCD (notify char): {ex.Message}");
-                    }
-                    // Prime a read to nudge pipeline (some stacks deliver a first value here)
-                    try
-                    {
-                        var read = await _notifyCharacteristic.ReadValueAsync(BluetoothCacheMode.Uncached);
-                        var len = (read?.Value?.Length ?? 0);
-                        Trace.WriteLine($"🧪 Priming read (notify char): {read?.Status} len={len}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Trace.WriteLine($"⚠️ Priming read (notify char) failed: {ex.Message}");
-                    }
-                }
+				if (_service == null)
+				{
+					Trace.WriteLine("❌ RVR+ BLE service not found");
+					return false;
+				}
+				Trace.WriteLine("🔧 RVR+ service found");
 
-                // Also enable notifications on the command characteristic (responses observed here on some firmwares)
-                if (_characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify) ||
-                    _characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Indicate))
-                {
-                    _characteristic.ValueChanged += OnCharacteristicValueChanged;
-                    var cccd = (_preferIndications && _characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Indicate))
-                        ? GattClientCharacteristicConfigurationDescriptorValue.Indicate
-                        : (_characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify)
-                            ? GattClientCharacteristicConfigurationDescriptorValue.Notify
-                            : GattClientCharacteristicConfigurationDescriptorValue.Indicate);
-                    var cccdStatus = await _characteristic.WriteClientCharacteristicConfigurationDescriptorAsync(cccd);
-                    Trace.WriteLine($"📡 Notifications (cmd char) {(cccdStatus == GattCommunicationStatus.Success ? "enabled" : "failed")} ({cccdStatus})");
-                    try
-                    {
-                        var readCccd = await _characteristic.ReadClientCharacteristicConfigurationDescriptorAsync();
-                        Trace.WriteLine($"🔎 CCCD (cmd char) now: {readCccd.Status} - {readCccd.ClientCharacteristicConfigurationDescriptor}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Trace.WriteLine($"⚠️ Could not read CCCD (cmd char): {ex.Message}");
-                    }
-                    // Prime a read
-                    try
-                    {
-                        var read = await _characteristic.ReadValueAsync(BluetoothCacheMode.Uncached);
-                        var len = (read?.Value?.Length ?? 0);
-                        Trace.WriteLine($"🧪 Priming read (cmd char): {read?.Status} len={len}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Trace.WriteLine($"⚠️ Priming read (cmd char) failed: {ex.Message}");
-                    }
-                }
+				// ==========================
+				//   CHARACTERISTICS (FAST)
+				// ==========================
+				_characteristic = null;
+				_notifyCharacteristic = null;
 
-                _connected = true;
-                Trace.WriteLine("✅ Connected to RVR+ over BLE GATT");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Trace.WriteLine($"❌ BLE connection error: {ex.Message}");
-                return false;
-            }
-        }
+				// 1) Control characteristic : UUID spécifique, cached d'abord
+				GattCharacteristicsResult? charResult =
+					await _service.GetCharacteristicsForUuidAsync(RVR_BLE_CHARACTERISTIC_UUID, BluetoothCacheMode.Cached);
+				Trace.WriteLine($"🔎 GetCharacteristics(ctrl cached) => {charResult.Status}, count={charResult.Characteristics?.Count ?? 0}");
 
-        private async Task<BluetoothLEDevice?> ScanWithWatcherAsync(string name, TimeSpan timeout)
+				if (charResult.Status == GattCommunicationStatus.Success &&
+					charResult.Characteristics?.Count > 0)
+				{
+					_characteristic = charResult.Characteristics[0];
+				}
+				else
+				{
+					// 2) Uncached avec 1-2 retries
+					for (int attempt = 1; attempt <= GATT_RETRIES && _characteristic == null; attempt++)
+					{
+						charResult = await _service.GetCharacteristicsForUuidAsync(
+							RVR_BLE_CHARACTERISTIC_UUID, BluetoothCacheMode.Uncached);
+						Trace.WriteLine($"🔎 GetCharacteristics(ctrl uncached) attempt {attempt} => {charResult.Status}, count={charResult.Characteristics?.Count ?? 0}");
+
+						if (charResult.Status == GattCommunicationStatus.Success &&
+							charResult.Characteristics?.Count > 0)
+						{
+							_characteristic = charResult.Characteristics[0];
+							break;
+						}
+
+						await Task.Delay(SHORT_DELAY_MS);
+					}
+
+					// 3) Fallback : une seule énumération complète
+					if (_characteristic == null)
+					{
+						var allChars = await _service.GetCharacteristicsAsync(BluetoothCacheMode.Uncached);
+						Trace.WriteLine($"🔎 GetCharacteristics(all) => {allChars.Status}, count={allChars.Characteristics?.Count ?? 0}");
+
+						if (allChars.Status == GattCommunicationStatus.Success &&
+							allChars.Characteristics?.Count > 0)
+						{
+							_characteristic = allChars.Characteristics.FirstOrDefault(c => c.Uuid == RVR_BLE_CHARACTERISTIC_UUID)
+											  ?? allChars.Characteristics.FirstOrDefault();
+						}
+					}
+				}
+
+				if (_characteristic == null)
+				{
+					Trace.WriteLine("❌ RVR+ control characteristic not found");
+					return false;
+				}
+				Trace.WriteLine("⚙️ Control characteristic found");
+
+				// 4) Notify characteristic, même logique (un peu simplifiée)
+				var charNotifyResult =
+					await _service.GetCharacteristicsForUuidAsync(RVR_BLE_CHARACTERISTIC_NOTIFY_UUID, BluetoothCacheMode.Cached);
+				Trace.WriteLine($"🔎 GetCharacteristics(notify cached) => {charNotifyResult.Status}, count={charNotifyResult.Characteristics?.Count ?? 0}");
+
+				if (charNotifyResult.Status == GattCommunicationStatus.Success &&
+					charNotifyResult.Characteristics?.Count > 0)
+				{
+					_notifyCharacteristic = charNotifyResult.Characteristics[0];
+				}
+				else
+				{
+					for (int attempt = 1; attempt <= GATT_RETRIES && _notifyCharacteristic == null; attempt++)
+					{
+						var notifUncached = await _service.GetCharacteristicsForUuidAsync(
+							RVR_BLE_CHARACTERISTIC_NOTIFY_UUID, BluetoothCacheMode.Uncached);
+						Trace.WriteLine($"🔎 GetCharacteristics(notify uncached) attempt {attempt} => {notifUncached.Status}, count={notifUncached.Characteristics?.Count ?? 0}");
+
+						if (notifUncached.Status == GattCommunicationStatus.Success &&
+							notifUncached.Characteristics?.Count > 0)
+						{
+							_notifyCharacteristic = notifUncached.Characteristics[0];
+							break;
+						}
+
+						await Task.Delay(SHORT_DELAY_MS);
+					}
+				}
+
+				if (_notifyCharacteristic != null)
+				{
+					Trace.WriteLine("🔔 Notify characteristic discovered");
+				}
+
+				// ======================
+				//   NOTIFICATIONS CCCD
+				// ======================
+				bool notifySet = false;
+
+				// Notify char privilégiée
+				if (_notifyCharacteristic != null &&
+					(_notifyCharacteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify) ||
+					 _notifyCharacteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Indicate)))
+				{
+					_notifyCharacteristic.ValueChanged += OnCharacteristicValueChanged;
+
+					var cccd = (_preferIndications && _notifyCharacteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Indicate))
+						? GattClientCharacteristicConfigurationDescriptorValue.Indicate
+						: GattClientCharacteristicConfigurationDescriptorValue.Notify;
+
+					var cccdStatus = await _notifyCharacteristic
+						.WriteClientCharacteristicConfigurationDescriptorAsync(cccd);
+					Trace.WriteLine($"📡 Notifications (notify char) {(cccdStatus == GattCommunicationStatus.Success ? "enabled" : "failed")} ({cccdStatus})");
+					notifySet = cccdStatus == GattCommunicationStatus.Success;
+				}
+
+				// En plus sur la char de commande si dispo
+				if (_characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Notify) ||
+					_characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Indicate))
+				{
+					_characteristic.ValueChanged += OnCharacteristicValueChanged;
+
+					var cccd = (_preferIndications && _characteristic.CharacteristicProperties.HasFlag(GattCharacteristicProperties.Indicate))
+						? GattClientCharacteristicConfigurationDescriptorValue.Indicate
+						: GattClientCharacteristicConfigurationDescriptorValue.Notify;
+
+					var cccdStatus = await _characteristic
+						.WriteClientCharacteristicConfigurationDescriptorAsync(cccd);
+					Trace.WriteLine($"📡 Notifications (cmd char) {(cccdStatus == GattCommunicationStatus.Success ? "enabled" : "failed")} ({cccdStatus})");
+				}
+
+				_connected = true;
+				Trace.WriteLine("✅ Connected to RVR+ over BLE GATT (fast path)");
+				return true;
+			}
+			catch (Exception ex)
+			{
+				Trace.WriteLine($"❌ BLE connection error: {ex.Message}");
+				return false;
+			}
+		}
+
+
+		private async Task<BluetoothLEDevice?> ScanWithWatcherAsync(string name, TimeSpan timeout)
         {
             var tcs = new TaskCompletionSource<ulong>();
             var watcher = new BluetoothLEAdvertisementWatcher
