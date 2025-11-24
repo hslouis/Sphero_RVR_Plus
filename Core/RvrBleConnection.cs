@@ -82,7 +82,8 @@ namespace Sphero_RVR_Plus_CS.Core
                 {
                     Trace.WriteLine("❌ Could not acquire BLE device instance");
                     Trace.WriteLine("💡 Ensure RVR+ is on, in BLE pairing mode (LEDs flashing), and in range.");
-                    return false;
+                  
+					return false;
                 }
 
                 _device.ConnectionStatusChanged += (s, e) =>
@@ -92,7 +93,7 @@ namespace Sphero_RVR_Plus_CS.Core
                 };
 
                 // Give a brief moment for GATT to become available
-                await Task.Delay(500);
+                await Task.Delay(300);
 
                 // Get service
                 // Warm-up: enumerate all services uncached, with a few retries
@@ -103,7 +104,7 @@ namespace Sphero_RVR_Plus_CS.Core
                     var count = allSvcResult?.Services?.Count ?? 0;
                     Trace.WriteLine($"🔎 GetGattServices attempt {attempt} => {allSvcResult?.Status}, count={count}");
                     if (allSvcResult?.Status == GattCommunicationStatus.Success && count > 0) break;
-                    await Task.Delay(600);
+                    await Task.Delay(300);
                 }
 
                 if (allSvcResult == null || allSvcResult.Status != GattCommunicationStatus.Success)
@@ -128,7 +129,7 @@ namespace Sphero_RVR_Plus_CS.Core
                             _service = svcByUuid!.Services![0];
                             break;
                         }
-                        await Task.Delay(600);
+                        await Task.Delay(400);
                     }
                 }
 

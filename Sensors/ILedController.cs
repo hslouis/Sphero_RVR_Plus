@@ -73,6 +73,7 @@ namespace Sphero_RVR_Plus_CS.Sensors
         Orange,
         Purple,
         Pink,
-        Lime
-    }
+        Lime,
+		Black
+	}
 }

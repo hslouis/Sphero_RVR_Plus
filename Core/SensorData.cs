@@ -20,7 +20,7 @@ namespace Sphero_RVR_Plus_CS.Core
         /// <summary>
         /// Données de l'IMU (accéléromètre et gyroscope)
         /// </summary>
-        public ImuSensor Imu { get; set; }
+        //public ImuSensor Imu { get; set; }
 
         /// <summary>
         /// Données de luminosité ambiante
@@ -36,14 +36,14 @@ namespace Sphero_RVR_Plus_CS.Core
         {
             Color = new ColorSensor();
             Distance = new DistanceSensor();
-            Imu = new ImuSensor();
+            //Imu = new ImuSensor();
             AmbientLight = 0.0;
             LastUpdate = DateTime.Now;
         }
 
         public override string ToString()
         {
-            return $"Color: {Color}, Distance: {Distance.Total:F2}, IMU: {Imu}, Light: {AmbientLight:F1}";
+            return $"Color: {Color}, Distance: {Distance.Total:F2}, Light: {AmbientLight:F1}";
         }
     }
 
@@ -221,92 +221,5 @@ namespace Sphero_RVR_Plus_CS.Core
         }
     }
 
-    /// <summary>
-    /// Données de l'IMU (Inertial Measurement Unit)
-    /// </summary>
-    public struct ImuSensor
-    {
-        // Accéléromètre (m/s²)
-        public double AccelX { get; set; }
-        public double AccelY { get; set; }
-        public double AccelZ { get; set; }
-
-        // Gyroscope (degrés/seconde)
-        public double GyroX { get; set; }
-        public double GyroY { get; set; }
-        public double GyroZ { get; set; }
-
-        public ImuSensor(double ax, double ay, double az, double gx, double gy, double gz)
-        {
-            AccelX = ax; AccelY = ay; AccelZ = az;
-            GyroX = gx; GyroY = gy; GyroZ = gz;
-        }
-
-        public override string ToString()
-        {
-            return $"Accel({AccelX:F2},{AccelY:F2},{AccelZ:F2}) Gyro({GyroX:F1},{GyroY:F1},{GyroZ:F1})";
-        }
-    }
-
-    /// <summary>
-    /// Énumération pour les couleurs LED disponibles
-    /// </summary>
-    public enum RvrLedColor
-    {
-        Off,
-        Red,
-        Green,
-        Blue,
-        Yellow,
-		BlueCyan,
-        Magenta,
-        White,
-        Orange,
-        Purple,
-        Pink
-    }
-
-    /// <summary>
-    /// Structure pour définir une couleur LED personnalisée
-    /// </summary>
-    public struct CustomLedColor
-    {
-        public byte Red { get; set; }
-        public byte Green { get; set; }
-        public byte Blue { get; set; }
-
-        public CustomLedColor(byte r, byte g, byte b)
-        {
-            Red = r;
-            Green = g;
-            Blue = b;
-        }
-
-        /// <summary>
-        /// Couleurs prédéfinies
-        /// </summary>
-        public static CustomLedColor FromLedColor(RvrLedColor color)
-        {
-            return color switch
-            {
-                RvrLedColor.Off => new CustomLedColor(0, 0, 0),
-                RvrLedColor.Red => new CustomLedColor(255, 0, 0),
-                RvrLedColor.Green => new CustomLedColor(0, 255, 0),
-                RvrLedColor.Blue => new CustomLedColor(0, 0, 255),
-                RvrLedColor.Yellow => new CustomLedColor(255, 255, 0),
-                RvrLedColor.BlueCyan => new CustomLedColor(0, 255, 255),
-                RvrLedColor.Magenta => new CustomLedColor(255, 0, 255),
-                RvrLedColor.White => new CustomLedColor(255, 255, 255),
-                RvrLedColor.Orange => new CustomLedColor(255, 165, 0),
-                RvrLedColor.Purple => new CustomLedColor(128, 0, 128),
-                RvrLedColor.Pink => new CustomLedColor(255, 192, 203),
-                _ => new CustomLedColor(0, 0, 0)
-            };
-        }
-
-        public override string ToString()
-        {
-            return $"RGB({Red},{Green},{Blue})";
-        }
-    }
+ 
 }

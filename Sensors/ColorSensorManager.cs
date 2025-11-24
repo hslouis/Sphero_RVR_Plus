@@ -192,29 +192,6 @@ namespace Sphero_RVR_Plus_CS.Sensors
             }
         }
 
-        ///// <summary>
-        ///// Lit UNE SEULE couleur sur demande (pas de streaming)
-        ///// </summary>
-        ///// <returns>Les données de couleur lues ou null si échec</returns>
-        //public async Task<SensorData?> ReadSingleColorAsync()
-        //{
-        //    try
-        //    {
-        //        Trace.WriteLine("?? Lecture ponctuelle de couleur...");
-        //        var result = await WaitForSingleColorAsync();
-        //        if (result.HasValue)
-        //        {
-        //            Trace.WriteLine($"? Couleur lue: {result.Value}");
-        //        }
-        //        return result;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Trace.WriteLine($"? Erreur lecture ponctuelle: {ex.Message}");
-        //        return null;
-        //    }
-        //}
-
         /// <summary>
         /// Attend une mesure ponctuelle du capteur de couleur via les notifications BLE
         /// </summary>
@@ -484,53 +461,7 @@ namespace Sphero_RVR_Plus_CS.Sensors
             await _controller.SendRawCommandAsync(command);
         }
 
-        ///// <summary>
-        ///// Crée une commande de lecture de couleur
-        ///// </summary>
-        //private byte[] CreateColorReadCommand(byte sequence)
-        //{
-        //    // 8D 3A 11 01 1A 2F SEQ CHECKSUM D8
-        //    var frame = new byte[] { 0x8D, 0x3A, 0x11, 0x01, 0x1A, 0x2F, sequence, 0x00, 0xD8 };
-            
-        //    // Calcul du checksum (simple pour cet exemple)
-        //    byte checksum = 0x85; // Valeur basée sur la capture BLE
-        //    frame[7] = checksum;
-            
-        //    return frame;
-        //}
-
-        ///// <summary>
-        ///// Crée une trame Sphero avec calcul automatique de checksum
-        ///// </summary>
-        //private byte[] CreateFrame(byte flag, byte len, byte did, byte cid, byte seq, params byte[] payload)
-        //{
-        //    var frame = new List<byte> { 0x8D, flag, len, 0x01, did, cid, seq };
-        //    if (payload != null) frame.AddRange(payload);
-            
-        //    // Checksum simplifié pour l'exemple
-        //    frame.Add(0x00); // Placeholder checksum
-        //    frame.Add(0xD8);
-            
-        //    return frame.ToArray();
-        //}
-
-        //private byte[] CreateFrame(byte flag, byte len, byte b1, byte did, byte cid, byte seq, params byte[] payload)
-        //{
-        //    var frame = new List<byte> { 0x8D, flag, len, b1, did, cid, seq };
-        //    if (payload != null) frame.AddRange(payload);
-            
-        //    // Checksum simplifié 
-        //    frame.Add(0x00); // Placeholder
-        //    frame.Add(0xD8);
-            
-        //    return frame.ToArray();
-        //}
-
-        //private async Task SendCommand(byte[] command)
-        //{
-        //    await _controller.SendRawCommandAsync(command);
-        //}
-
+      
         private byte GetNextSequence()
         {
             return ++_sequenceNumber;
@@ -609,7 +540,11 @@ namespace Sphero_RVR_Plus_CS.Sensors
 			const double LOW_V = 0.25;   // sombre
 			const double LOW_S = 0.12;   // désaturé → blanc/gris
 
-			// 1) Noir / éteint
+			// --- NOIR ---
+			if (v < 0.04)   // quasi 0,0,0
+				return LedColor.Black;
+
+			// --- ÉTEINT ---
 			if (v < OFF_V)
 				return LedColor.Off;
 
@@ -656,7 +591,8 @@ namespace Sphero_RVR_Plus_CS.Sensors
             return DetectedColor switch
             {
                 LedColor.Off => "Éteint",
-                LedColor.Red => "Rouge",
+				LedColor.Black => "Noir",
+				LedColor.Red => "Rouge",
                 LedColor.Green => "Vert",
                 LedColor.Blue => "Bleu",
                 LedColor.Yellow => "Jaune",

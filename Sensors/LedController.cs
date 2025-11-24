@@ -236,7 +236,7 @@ namespace Sphero_RVR_Plus_CS.Sensors
         {
             return color switch
             {
-                LedColor.Off => (0, 0, 0),
+                LedColor.Black => (0, 0, 0),
                 LedColor.Red => (255, 0, 0),
                 LedColor.Green => (0, 255, 0),
                 LedColor.Blue => (0, 0, 255),
