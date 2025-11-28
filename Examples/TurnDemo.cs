@@ -17,15 +17,6 @@ namespace Sphero_RVR_Plus_CS.Examples
 
             try
             {
-                //Console.Write("Connexion au RVR+...");
-                //if (!await rvr.ConnectAsync())
-                //{
-                //    Console.WriteLine("❌ Échec de la connexion");
-                //    return;
-                //}
-                //Console.WriteLine("✅ Connecté!");
-                //Console.WriteLine();
-
                 // Test des rotations vers la droite
                 Console.WriteLine("🧪 Test des rotations vers la DROITE");
                 await TestRightTurns(rvr);
